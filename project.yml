@@ -1,0 +1,44 @@
+name: WhiteScreenTimer
+options:
+  bundleIdPrefix: com.example
+  createIntermediateGroups: true
+  deploymentTarget:
+    iOS: "16.0"
+  minimumXcodeGenVersion: "2.35"
+
+settings:
+  base:
+    SWIFT_VERSION: "5.0"
+    MARKETING_VERSION: "1.0"
+    CURRENT_PROJECT_VERSION: "1"
+
+targets:
+  WhiteScreenTimer:
+    type: application
+    platform: iOS
+    deploymentTarget: "16.0"
+    sources:
+      - path: WhiteScreenTimer
+    settings:
+      base:
+        PRODUCT_BUNDLE_IDENTIFIER: com.example.whitescreentimer
+        PRODUCT_NAME: WhiteScreenTimer
+        INFOPLIST_FILE: WhiteScreenTimer/Info.plist
+        GENERATE_INFOPLIST_FILE: NO
+        TARGETED_DEVICE_FAMILY: "1"
+        SUPPORTS_MACCATALYST: NO
+        SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
+        CODE_SIGN_STYLE: Automatic
+        # 打包时把下面这行换成你的 Apple 开发者团队 ID（或在 Xcode 里手动选择 Team）
+        DEVELOPMENT_TEAM: ""
+        ONLY_ACTIVE_ARCH: NO
+
+schemes:
+  WhiteScreenTimer:
+    build:
+      targets:
+        WhiteScreenTimer: all
+    run:
+      config: Debug
+    archive:
+      config: Release
