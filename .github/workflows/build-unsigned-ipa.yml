@@ -1,0 +1,55 @@
+name: Build unsigned IPA
+
+# 没有 Mac 也能拿到 ipa：在 GitHub Actions 的 macOS 机器上编译，
+# 产出"未签名 ipa"，再用 Sideloadly / AltStore 用你自己的 Apple ID 签名安装。
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: macos-14
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Show Xcode version
+        run: xcodebuild -version
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate Xcode project
+        run: xcodegen generate
+
+      - name: Build (no code signing)
+        run: |
+          xcodebuild \
+            -project WhiteScreenTimer.xcodeproj \
+            -scheme WhiteScreenTimer \
+            -configuration Release \
+            -sdk iphoneos \
+            -destination 'generic/platform=iOS' \
+            SYMROOT="$PWD/build" \
+            CODE_SIGNING_ALLOWED=NO \
+            CODE_SIGNING_REQUIRED=NO \
+            CODE_SIGN_IDENTITY="" \
+            ONLY_ACTIVE_ARCH=NO \
+            build
+
+      - name: Package into .ipa
+        run: |
+          mkdir -p Payload
+          cp -R build/Release-iphoneos/WhiteScreenTimer.app Payload/
+          zip -qr WhiteScreenTimer-unsigned.ipa Payload
+          ls -lh WhiteScreenTimer-unsigned.ipa
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: WhiteScreenTimer-unsigned-ipa
+          path: WhiteScreenTimer-unsigned.ipa
+          if-no-files-found: error
