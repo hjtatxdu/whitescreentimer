@@ -1,7 +1,7 @@
 import SwiftUI
 import UIKit
 
-/// 设置页：屏幕色调（暖色预设 + RGB 自定义）、退出时间（1–10 分钟，默认 3）
+/// 设置页：屏幕色调（暖色预设 + RGB 自定义）、常亮、退出时间（1–10 分钟，默认 3）
 struct SettingsView: View {
 
     @EnvironmentObject private var store: SettingsStore
@@ -58,6 +58,21 @@ struct SettingsView: View {
                 }
 
                 Section {
+                    Toggle(isOn: $store.alwaysOn) {
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("常亮")
+                            Text("开启后不会自动退出，需要手动关闭")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } header: {
+                    Text("常亮")
+                } footer: {
+                    Text("开启「常亮」后，App 会一直保持设定色调与最高亮度，不执行下面的退出时间；关闭时按 Home 键或上滑回桌面，亮度会用 5 秒渐变回原值。")
+                }
+
+                Section {
                     Picker("退出时间", selection: $store.minutes) {
                         ForEach(Array(SettingsStore.range), id: \.self) { minute in
                             Text(minute == SettingsStore.defaultMinutes ? "\(minute) 分钟（默认）" : "\(minute) 分钟")
@@ -66,10 +81,14 @@ struct SettingsView: View {
                     }
                     .pickerStyle(.wheel)
                     .frame(height: 130)
+                    .disabled(store.alwaysOn)
+                    .opacity(store.alwaysOn ? 0.4 : 1)
                 } header: {
                     Text("退出时间")
                 } footer: {
-                    Text("启动后屏幕保持设定的色调与最高亮度，到达设定时长后自动还原亮度并退出应用。")
+                    Text(store.alwaysOn
+                         ? "当前是常亮模式，退出时间不生效；关闭「常亮」后此设置才会起作用。"
+                         : "到达设定时长后，亮度用 5 秒渐变回原值并退出应用。")
                 }
             }
             .navigationTitle("设置")
