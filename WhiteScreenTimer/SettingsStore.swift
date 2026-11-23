@@ -1,12 +1,13 @@
 import Foundation
 import Combine
 
-/// 设置项只有两个：屏幕色调、退出时间（分钟，默认 3，范围 1...10）
+/// 设置项：屏幕色调、退出时间（分钟，默认 3，范围 1...10）、常亮（不自动退出）
 final class SettingsStore: ObservableObject {
 
     private enum Key {
-        static let minutes = "exitMinutes"
-        static let tone    = "screenToneHex"
+        static let minutes  = "exitMinutes"
+        static let tone     = "screenToneHex"
+        static let alwaysOn = "alwaysOn"
     }
 
     static let defaultMinutes = 3
@@ -33,6 +34,14 @@ final class SettingsStore: ObservableObject {
         }
     }
 
+    // MARK: - 常亮（开启后不自动退出）
+
+    @Published var alwaysOn: Bool {
+        didSet {
+            UserDefaults.standard.set(alwaysOn, forKey: Key.alwaysOn)
+        }
+    }
+
     init() {
         let storedMinutes = UserDefaults.standard.integer(forKey: Key.minutes)   // 未设置时为 0
         self.minutes = Self.range.contains(storedMinutes) ? storedMinutes : Self.defaultMinutes
@@ -40,6 +49,8 @@ final class SettingsStore: ObservableObject {
         let storedTone = UserDefaults.standard.string(forKey: Key.tone)
         let validTone = storedTone.flatMap { Self.isValidHex($0) ? $0.uppercased() : nil }
         self.toneHex = validTone ?? ScreenTone.pureWhite
+
+        self.alwaysOn = UserDefaults.standard.bool(forKey: Key.alwaysOn)        // 默认 false
     }
 
     private static func isValidHex(_ hex: String) -> Bool {
