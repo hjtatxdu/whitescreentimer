@@ -1,15 +1,22 @@
 import UIKit
+import QuartzCore
 
-/// 亮度控制：支持"渐变"到目标亮度（启动 1.5 秒升到最亮、退出 5 秒降回原亮度）。
-/// 所有 UIKit 调用都在主线程执行。
+/// 亮度控制：启动 1.5 秒渐变到最亮，退出 5 秒渐变回原亮度。
+/// 用 CADisplayLink 逐帧推进（比 Timer 稳定，不会被系统节流）。
 final class BrightnessController {
 
     static let shared = BrightnessController()
 
     /// 进入应用前的原始亮度，nil 表示还没记录过
     private var originalBrightness: CGFloat?
-    private var rampTimer: Timer?
-    private var dimTaskId: UIBackgroundTaskIdentifier = .invalid
+
+    // 渐变状态
+    private var displayLink: CADisplayLink?
+    private var rampStart: CFTimeInterval = 0
+    private var rampFrom: CGFloat = 1
+    private var rampTo: CGFloat = 1
+    private var rampDuration: Double = 0
+    private var rampCompletion: (() -> Void)?
 
     private init() {}
 
@@ -26,7 +33,7 @@ final class BrightnessController {
         }
     }
 
-    /// 渐降回原始亮度（自动退出时用）
+    /// 渐降回原始亮度（到点退出时用）
     func dim(duration: TimeInterval, completion: (() -> Void)? = nil) {
         onMain {
             guard let original = self.originalBrightness else {
@@ -41,38 +48,21 @@ final class BrightnessController {
         }
     }
 
-    /// 切到后台时：申请后台执行时间，把亮度用 5 秒降回去；系统回收后台时间就立即兜底还原
-    func dimInBackground(duration: TimeInterval) {
-        onMain {
-            self.endDimTask()
-            self.dimTaskId = UIApplication.shared.beginBackgroundTask(withName: "AutoNightLight.dim") { [weak self] in
-                // 系统给的后台时间用尽：直接还原，避免亮度停在半路
-                self?.dimNow()
-            }
-            self.dim(duration: duration) { [weak self] in
-                self?.endDimTask()
-            }
-        }
-    }
-
-    /// 立即还原（兜底：应用被终止、出现异常时）
+    /// 立即还原（兜底：应用被终止、出现异常、切到后台时）
     func dimNow() {
         onMain {
-            self.rampTimer?.invalidate()
-            self.rampTimer = nil
+            self.stopRamp()
             if let original = self.originalBrightness {
                 UIScreen.main.brightness = original
             }
             UIApplication.shared.isIdleTimerDisabled = false
-            self.endDimTask()
         }
     }
 
     // MARK: - 渐变实现
 
     private func ramp(to target: CGFloat, duration: TimeInterval, completion: (() -> Void)?) {
-        rampTimer?.invalidate()
-        rampTimer = nil
+        stopRamp()
 
         let screen = UIScreen.main
         let from = screen.brightness
@@ -83,29 +73,37 @@ final class BrightnessController {
             return
         }
 
-        let steps = max(1, Int(duration * 30))
-        var step = 0
-        let timer = Timer(timeInterval: 1.0 / 30.0, repeats: true) { [weak self] t in
-            step += 1
-            let progress = min(1.0, Double(step) / Double(steps))
-            let eased = CGFloat(0.5 - 0.5 * cos(progress * Double.pi))   // 缓入缓出，不突兀
-            screen.brightness = from + (target - from) * eased
-            if progress >= 1.0 {
-                t.invalidate()
-                screen.brightness = target
-                self?.rampTimer = nil
-                completion?()
-            }
-        }
-        rampTimer = timer
-        RunLoop.main.add(timer, forMode: .common)
+        rampFrom = from
+        rampTo = target
+        rampDuration = max(0.05, duration)
+        rampCompletion = completion
+        rampStart = CACurrentMediaTime()
+
+        let link = CADisplayLink(target: self, selector: #selector(step))
+        link.preferredFramesPerSecond = 30
+        link.add(to: .main, forMode: .common)
+        displayLink = link
     }
 
-    private func endDimTask() {
-        if dimTaskId != .invalid {
-            UIApplication.shared.endBackgroundTask(dimTaskId)
-            dimTaskId = .invalid
+    @objc private func step() {
+        let elapsed = CACurrentMediaTime() - rampStart
+        let rawProgress = min(1.0, max(0.0, elapsed / rampDuration))
+        let eased = CGFloat(0.5 - 0.5 * cos(rawProgress * Double.pi))   // 缓入缓出
+
+        UIScreen.main.brightness = rampFrom + (rampTo - rampFrom) * eased
+
+        if rawProgress >= 1.0 {
+            UIScreen.main.brightness = rampTo
+            let completion = rampCompletion
+            stopRamp()
+            completion?()
         }
+    }
+
+    private func stopRamp() {
+        displayLink?.invalidate()
+        displayLink = nil
+        rampCompletion = nil
     }
 
     private func onMain(_ work: @escaping () -> Void) {
