@@ -4,8 +4,6 @@ name: Build unsigned IPA
 # 产出"未签名 ipa"，再用 Sideloadly / AltStore 用你自己的 Apple ID 签名安装。
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
