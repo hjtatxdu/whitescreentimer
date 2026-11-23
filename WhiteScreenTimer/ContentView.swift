@@ -3,10 +3,15 @@ import UIKit
 
 struct ContentView: View {
 
+    /// 启动：1.5 秒渐变到最亮
+    private let boostDuration: TimeInterval = 1.5
+    /// 退出：5 秒渐变回原亮度
+    private let dimDuration: TimeInterval = 5.0
+
     @EnvironmentObject private var store: SettingsStore
     @Environment(\.scenePhase) private var scenePhase
 
-    /// 到点时间（绝对时间）。nil 表示没有正在进行的倒计时
+    /// 到点时间（绝对时间）。nil 表示没有正在进行的倒计时（例如"常亮"模式）
     @State private var deadline: Date?
     @State private var showSettings = false
     @State private var finished = false
@@ -50,14 +55,24 @@ struct ContentView: View {
             }
             .onChange(of: scenePhase) { newPhase in
                 switch newPhase {
-                case .active: resume()
-                case .inactive, .background: pause()
-                default: break
+                case .active:
+                    resume()
+                case .background:
+                    // 离开 App：用 5 秒把亮度降回原值
+                    BrightnessController.shared.dimInBackground(duration: dimDuration)
+                case .inactive:
+                    break        // 下拉控制中心等场景不处理，避免亮度来回跳
+                default:
+                    break
                 }
             }
             .onChange(of: store.minutes) { _ in
-                guard !finished else { return }
+                guard !finished, !store.alwaysOn else { return }
                 start()      // 改了时长，从当前时刻重新计时
+            }
+            .onChange(of: store.alwaysOn) { _ in
+                guard !finished else { return }
+                start()      // 常亮开关切换后立即生效（清空或重建倒计时）
             }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
@@ -72,8 +87,13 @@ struct ContentView: View {
 
     private func start() {
         finished = false
-        BrightnessController.shared.boost()
-        deadline = Date().addingTimeInterval(TimeInterval(store.minutes * 60))
+        BrightnessController.shared.brighten(duration: boostDuration)
+
+        if store.alwaysOn {
+            deadline = nil          // 常亮：不安排退出
+        } else {
+            deadline = Date().addingTimeInterval(TimeInterval(store.minutes * 60))
+        }
     }
 
     private func checkDeadline() {
@@ -83,30 +103,26 @@ struct ContentView: View {
         }
     }
 
-    /// 切到后台：先还原亮度，避免用户被锁在最亮状态；绝对到点时间保持不变
-    private func pause() {
-        BrightnessController.shared.restore()
-    }
-
-    /// 回到前台：没到点就重新拉到最亮，已过点就立即结束
+    /// 回到前台：没到点就重新渐变到最亮，已过点就立即结束
     private func resume() {
         guard !finished else { return }
         if let deadline, Date() >= deadline {
             finish()
         } else {
-            BrightnessController.shared.boost()
+            BrightnessController.shared.brighten(duration: boostDuration)
         }
     }
 
-    /// 到点：还原亮度 -> 退出应用
+    /// 到点：5 秒渐变回原亮度 -> 退出应用
     private func finish() {
         guard !finished else { return }
         finished = true
         deadline = nil
-        BrightnessController.shared.restore()
-        // 给系统一点时间落地亮度值，再退出
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-            exit(0)
+        BrightnessController.shared.dim(duration: dimDuration) {
+            // 渐变结束后再退出，确保亮度已经完全落地
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                exit(0)
+            }
         }
     }
 
