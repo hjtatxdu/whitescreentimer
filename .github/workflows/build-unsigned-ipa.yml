@@ -4,13 +4,14 @@ name: Build unsigned IPA
 # 产出"未签名 ipa"，再用 Sideloadly / AltStore 用你自己的 Apple ID 签名安装。
 
 on:
-  push:
-    branches: [main]
   workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: false
+
+permissions:
+  contents: write      # 发布 Release 需要写权限
 
 jobs:
   build:
@@ -57,3 +58,33 @@ jobs:
           name: WhiteScreenTimer-unsigned-ipa
           path: WhiteScreenTimer-unsigned.ipa
           if-no-files-found: error
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.0
+          name: 自动夜灯 v1.0.0
+          make_latest: true
+          files: WhiteScreenTimer-unsigned.ipa
+          body: |
+            ## 自动夜灯 v1.0.0（未签名 ipa）
+
+            夜间照明用的小工具：打开即铺满设定色调，1.5 秒渐变到最亮；到点后 5 秒渐变回原亮度并退出。
+
+            ### 功能
+            - 启动 1.5 秒渐变到最亮亮度（缓入缓出，不刺眼）
+            - 到点后 5 秒过渡：亮度渐变回原值 + 画面压暗，然后自动退出
+            - 屏幕色调：纯白 + 7 个暖色预设（象牙白 / 奶油黄 / 浅杏 / 暖橙 / 琥珀 / 珊瑚粉 / 落日橙），支持 RGB 自定义
+            - 常亮模式：开启后不自动退出
+            - 退出时间：1–10 分钟可选，默认 3 分钟
+            - 长按屏幕 1.2 秒进入设置，界面保持纯色无按钮
+
+            ### 安装（ipa 未签名，必须自签）
+            1. Windows 上用 **Sideloadly**，把 ipa 拖入，填自己的 Apple ID，连接 iPhone 点 Start
+            2. iPhone：设置 → 通用 → VPN 与设备管理 → 信任开发者证书
+            3. iOS 16+：设置 → 隐私与安全性 → 开发者模式 → 打开并重启
+
+            免费 Apple ID 签名 7 天有效，到期用同一工具重签即可。
+
+            ### 系统要求
+            iOS 16.0 及以上（arm64）
