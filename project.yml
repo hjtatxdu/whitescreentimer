@@ -29,6 +29,7 @@ targets:
         SUPPORTS_MACCATALYST: NO
         SUPPORTS_MAC_DESIGNED_FOR_IPHONE_IPAD: NO
         CODE_SIGN_STYLE: Automatic
+        ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         # 打包时把下面这行换成你的 Apple 开发者团队 ID（或在 Xcode 里手动选择 Team）
         DEVELOPMENT_TEAM: ""
         ONLY_ACTIVE_ARCH: NO
