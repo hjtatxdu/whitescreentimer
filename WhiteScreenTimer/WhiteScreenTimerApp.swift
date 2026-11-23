@@ -3,8 +3,8 @@ import UIKit
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     func applicationWillTerminate(_ application: UIApplication) {
-        // 兜底：应用被系统或用户正常终止时，把亮度还原
-        BrightnessController.shared.restore()
+        // 兜底：应用被系统或用户正常终止时，立即把亮度还原
+        BrightnessController.shared.dimNow()
     }
 }
 
