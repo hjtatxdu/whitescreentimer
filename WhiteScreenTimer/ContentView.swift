@@ -16,6 +16,7 @@ struct ContentView: View {
     @State private var showSettings = false
     @State private var finished = false
     @State private var hintOpacity: Double = 1
+    @State private var fadeOpacity: Double = 0
 
     @AppStorage("didShowSettingsHint") private var didShowHint = false
 
@@ -46,6 +47,13 @@ struct ContentView: View {
                         .allowsHitTesting(false)
                 }
             }
+            .overlay {
+                // 退出时的画面压暗：即使系统亮度接口没响应，也能看到满 5 秒的过渡
+                Color.black
+                    .opacity(fadeOpacity)
+                    .ignoresSafeArea()
+                    .allowsHitTesting(false)
+            }
             .onAppear {
                 start()
                 revealHintOnceIfNeeded()
@@ -58,8 +66,8 @@ struct ContentView: View {
                 case .active:
                     resume()
                 case .background:
-                    // 离开 App：用 5 秒把亮度降回原值
-                    BrightnessController.shared.dimInBackground(duration: dimDuration)
+                    // 离开 App：iOS 会自行恢复系统亮度，这里直接兜底立即还原
+                    BrightnessController.shared.dimNow()
                 case .inactive:
                     break        // 下拉控制中心等场景不处理，避免亮度来回跳
                 default:
@@ -113,16 +121,23 @@ struct ContentView: View {
         }
     }
 
-    /// 到点：5 秒渐变回原亮度 -> 退出应用
+    /// 到点：满 5 秒的过渡（亮度渐变 + 画面压暗）-> 退出应用
     private func finish() {
         guard !finished else { return }
         finished = true
         deadline = nil
-        BrightnessController.shared.dim(duration: dimDuration) {
-            // 渐变结束后再退出，确保亮度已经完全落地
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                exit(0)
-            }
+
+        // 1) 系统亮度：5 秒渐变回原值（系统允许时生效）
+        BrightnessController.shared.dim(duration: dimDuration)
+
+        // 2) 画面压暗：即使亮度接口没响应，也保证能看见完整的 5 秒过渡
+        withAnimation(.easeInOut(duration: dimDuration)) {
+            fadeOpacity = 0.22
+        }
+
+        // 3) 固定等满 5 秒再退出，不受亮度接口行为影响
+        DispatchQueue.main.asyncAfter(deadline: .now() + dimDuration + 0.25) {
+            exit(0)
         }
     }
 
