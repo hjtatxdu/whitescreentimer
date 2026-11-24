@@ -35,8 +35,8 @@ struct SettingsView: View {
 
                     if store.mode == .sos {
                         Picker("摩斯输出", selection: $store.morseTorch) {
-                            Text("屏幕闪烁").tag(false)
-                            Text("手机闪光灯").tag(true)
+                            Text("仅屏幕闪烁").tag(false)
+                            Text("屏幕 + 闪光灯").tag(true)
                         }
                         .pickerStyle(.segmented)
                         .onChange(of: store.morseTorch) { useTorch in
@@ -141,11 +141,11 @@ struct SettingsView: View {
         case .nightLight:
             return "常规夜灯：整屏保持设定色调与最高亮度。"
         case .police:
-            return "警灯模式：屏幕交替爆闪红光与蓝光，默认常亮不退出。请仅在紧急或警戒场景使用。"
+            return "警灯模式：仅用屏幕交替爆闪红光与蓝光（1 秒一循环），不动用闪光灯，默认常亮不退出。"
         case .sos:
             return store.morseTorch
-                ? "摩斯信号通过手机闪光灯发出：三短、三长、三短（SOS 国际通用求救信号），循环播放，屏幕保持设定色调。"
-                : "摩斯信号通过屏幕发出：三短、三长、三短（SOS 国际通用求救信号），循环播放。"
+                ? "摩斯求救：屏幕与手机闪光灯同时闪，播放三短、三长、三短（SOS 国际通用求救信号），循环滚动。"
+                : "摩斯求救：仅屏幕闪烁，播放三短、三长、三短（SOS 国际通用求救信号），循环滚动。"
         }
     }
 
