@@ -26,7 +26,7 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    /// 摩斯信号的输出方式：false = 屏幕闪烁，true = 手机闪光灯
+    /// 摩斯信号是否同时用手机闪光灯：false = 仅屏幕闪，true = 屏幕 + 闪光灯同时闪
     @Published var morseTorch: Bool {
         didSet {
             UserDefaults.standard.set(morseTorch, forKey: Key.morseTorch)
