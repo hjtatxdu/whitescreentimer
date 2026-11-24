@@ -18,14 +18,20 @@ struct ContentView: View {
     @State private var hintOpacity: Double = 1
     @State private var fadeOpacity: Double = 0
 
+    @StateObject private var engine = SignalEngine()
+
     @AppStorage("didShowSettingsHint") private var didShowHint = false
 
     private let ticker = Timer.publish(every: 0.25, on: .main, in: .common).autoconnect()
 
-    private var screenColor: Color { Color(hex: store.toneHex) }
+    /// 设置里的色调
+    private var baseColor: Color { Color(hex: store.toneHex) }
+
+    /// 引擎接管时用引擎给的颜色（警灯红蓝 / 摩斯黑白），否则用设置色调
+    private var screenColor: Color { engine.screenColor ?? baseColor }
 
     private var hintColor: Color {
-        screenColor.isLightBackground
+        baseColor.isLightBackground
             ? Color.black.opacity(0.22 * hintOpacity)
             : Color.white.opacity(0.45 * hintOpacity)
     }
@@ -66,7 +72,8 @@ struct ContentView: View {
                 case .active:
                     resume()
                 case .background:
-                    // 离开 App：iOS 会自行恢复系统亮度，这里直接兜底立即还原
+                    // 离开 App：先停掉闪光灯，并兜底立即还原亮度
+                    engine.stop()
                     BrightnessController.shared.dimNow()
                 case .inactive:
                     break        // 下拉控制中心等场景不处理，避免亮度来回跳
@@ -82,6 +89,14 @@ struct ContentView: View {
                 guard !finished else { return }
                 start()      // 常亮开关切换后立即生效（清空或重建倒计时）
             }
+            .onChange(of: store.mode) { _ in
+                guard !finished else { return }
+                start()      // 切换模式：重开倒计时并重启信号
+            }
+            .onChange(of: store.morseTorch) { _ in
+                guard !finished else { return }
+                restartSignal()   // 摩斯输出方式切换：屏幕 <-> 闪光灯
+            }
             .sheet(isPresented: $showSettings) {
                 SettingsView()
                     .presentationDetents([.large])
@@ -91,7 +106,7 @@ struct ContentView: View {
             .persistentSystemOverlays(.hidden)
     }
 
-    // MARK: - 计时控制
+    // MARK: - 计时与信号控制
 
     private func start() {
         finished = false
@@ -102,6 +117,13 @@ struct ContentView: View {
         } else {
             deadline = Date().addingTimeInterval(TimeInterval(store.minutes * 60))
         }
+
+        restartSignal()
+    }
+
+    /// 按当前模式启动/重启信号引擎（警灯、摩斯）
+    private func restartSignal() {
+        engine.start(mode: store.mode, useTorch: store.morseTorch)
     }
 
     private func checkDeadline() {
@@ -111,13 +133,14 @@ struct ContentView: View {
         }
     }
 
-    /// 回到前台：没到点就重新渐变到最亮，已过点就立即结束
+    /// 回到前台：没到点就重新渐变到最亮并恢复信号，已过点就立即结束
     private func resume() {
         guard !finished else { return }
         if let deadline, Date() >= deadline {
             finish()
         } else {
             BrightnessController.shared.brighten(duration: boostDuration)
+            restartSignal()
         }
     }
 
@@ -126,6 +149,9 @@ struct ContentView: View {
         guard !finished else { return }
         finished = true
         deadline = nil
+
+        // 先停掉警灯 / 闪光灯
+        engine.stop()
 
         // 1) 系统亮度：5 秒渐变回原值（系统允许时生效）
         BrightnessController.shared.dim(duration: dimDuration)
