@@ -85,9 +85,9 @@ struct ContentView: View {
                 guard !finished, !store.alwaysOn else { return }
                 start()      // 改了时长，从当前时刻重新计时
             }
-            .onChange(of: store.alwaysOn) { _ in
+            .onChange(of: store.nightAlwaysOn) { _ in
                 guard !finished else { return }
-                start()      // 常亮开关切换后立即生效（清空或重建倒计时）
+                start()      // 夜灯的常亮开关切换后立即生效（清空或重建倒计时）
             }
             .onChange(of: store.mode) { _ in
                 guard !finished else { return }
