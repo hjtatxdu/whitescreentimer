@@ -91,20 +91,26 @@ struct SettingsView: View {
                 }
 
                 Section {
-                    Toggle(isOn: $store.alwaysOn) {
+                    Toggle(isOn: Binding(
+                        get: { store.alwaysOn },
+                        set: { store.nightAlwaysOn = $0 }
+                    )) {
                         VStack(alignment: .leading, spacing: 2) {
                             Text("常亮")
                             Text(store.mode.forcesAlwaysOn
-                                 ? "应急模式默认开启，不自动退出"
-                                 : "开启后不会自动退出，需要手动关闭")
+                                 ? "应急模式固定常亮，不可关闭"
+                                 : "夜灯独立设置，开启后不会自动退出")
                                 .font(.caption)
                                 .foregroundStyle(.secondary)
                         }
                     }
+                    .disabled(store.mode.forcesAlwaysOn)
                 } header: {
                     Text("常亮")
                 } footer: {
-                    Text("开启「常亮」后，App 会一直保持在当前画面与最高亮度，不执行下面的退出时间；关闭时按 Home 键或上滑回桌面。")
+                    Text(store.mode.forcesAlwaysOn
+                         ? "警灯与摩斯求救属于应急模式，始终常亮，不执行退出时间。"
+                         : "开启「常亮」后，App 会一直保持在当前画面与最高亮度，不执行下面的退出时间；关闭时按 Home 键或上滑回桌面。")
                 }
 
                 Section {
