@@ -146,16 +146,16 @@ final class SignalEngine: ObservableObject {
     }
 
     private func apply(segment: Segment) {
-        if usesTorch {
-            screenColor = nil                       // 闪光灯模式下屏幕保持设定色调
-        } else {
-            screenColor = segment.isOn ? segment.color : Color.black
-        }
+        // 屏幕始终跟着节奏闪（警灯、摩斯都一样）；
+        // 摩斯选了"同时用闪光灯"时，闪光灯与屏幕同步亮灭
+        screenColor = segment.isOn ? segment.color : Color.black
 
         if lastAppliedOn != segment.isOn {
             lastAppliedOn = segment.isOn
             torchOn = segment.isOn
-            TorchController.shared.set(on: segment.isOn)
+            if usesTorch {
+                TorchController.shared.set(on: segment.isOn)
+            }
         }
     }
 
