@@ -15,14 +15,10 @@ final class SettingsStore: ObservableObject {
     static let defaultMinutes = 3
     static let range = 1...10
 
-    // MARK: - 模式（警灯 / 摩斯默认常亮）
-
+    /// 模式：只记录用户选择，不再改写「常亮」
     @Published var mode: ScreenMode {
         didSet {
             UserDefaults.standard.set(mode.rawValue, forKey: Key.mode)
-            if mode.forcesAlwaysOn && !alwaysOn {
-                alwaysOn = true          // 应急模式默认常亮
-            }
         }
     }
 
@@ -54,13 +50,19 @@ final class SettingsStore: ObservableObject {
         }
     }
 
-    // MARK: - 常亮（开启后不自动退出）
+    // MARK: - 常亮
+    // 夜灯有自己的常亮开关；警灯 / 摩斯求救固定常亮。
+    // 两者分开存，切模式互不干扰。
 
-    @Published var alwaysOn: Bool {
+    /// 夜灯模式的「常亮」开关（持久化，仅夜灯模式可改）
+    @Published var nightAlwaysOn: Bool {
         didSet {
-            UserDefaults.standard.set(alwaysOn, forKey: Key.alwaysOn)
+            UserDefaults.standard.set(nightAlwaysOn, forKey: Key.alwaysOn)
         }
     }
+
+    /// 当前模式实际的常亮状态：应急模式恒为 true，夜灯模式看用户开关
+    var alwaysOn: Bool { mode.forcesAlwaysOn || nightAlwaysOn }
 
     init() {
         let storedMinutes = UserDefaults.standard.integer(forKey: Key.minutes)   // 未设置时为 0
@@ -71,12 +73,9 @@ final class SettingsStore: ObservableObject {
         self.toneHex = validTone ?? ScreenTone.pureWhite
 
         let storedMode = ScreenMode(rawValue: UserDefaults.standard.string(forKey: Key.mode) ?? "")
-        let resolvedMode = storedMode ?? .nightLight
-        self.mode = resolvedMode
+        self.mode = storedMode ?? .nightLight
         self.morseTorch = UserDefaults.standard.bool(forKey: Key.morseTorch)
-
-        // 应急模式必须常亮；夜灯模式沿用上次的选择
-        self.alwaysOn = resolvedMode.forcesAlwaysOn ? true : UserDefaults.standard.bool(forKey: Key.alwaysOn)
+        self.nightAlwaysOn = UserDefaults.standard.bool(forKey: Key.alwaysOn)
     }
 
     private static func isValidHex(_ hex: String) -> Bool {
