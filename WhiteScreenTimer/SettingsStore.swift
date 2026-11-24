@@ -1,17 +1,37 @@
 import Foundation
 import Combine
 
-/// 设置项：屏幕色调、退出时间（分钟，默认 3，范围 1...10）、常亮（不自动退出）
+/// 设置项：模式（夜灯 / 警灯 / 摩斯求救）、屏幕色调、摩斯输出方式、常亮、退出时间
 final class SettingsStore: ObservableObject {
 
     private enum Key {
-        static let minutes  = "exitMinutes"
-        static let tone     = "screenToneHex"
-        static let alwaysOn = "alwaysOn"
+        static let minutes    = "exitMinutes"
+        static let tone       = "screenToneHex"
+        static let alwaysOn   = "alwaysOn"
+        static let mode       = "screenMode"
+        static let morseTorch = "morseUsesTorch"
     }
 
     static let defaultMinutes = 3
     static let range = 1...10
+
+    // MARK: - 模式（警灯 / 摩斯默认常亮）
+
+    @Published var mode: ScreenMode {
+        didSet {
+            UserDefaults.standard.set(mode.rawValue, forKey: Key.mode)
+            if mode.forcesAlwaysOn && !alwaysOn {
+                alwaysOn = true          // 应急模式默认常亮
+            }
+        }
+    }
+
+    /// 摩斯信号的输出方式：false = 屏幕闪烁，true = 手机闪光灯
+    @Published var morseTorch: Bool {
+        didSet {
+            UserDefaults.standard.set(morseTorch, forKey: Key.morseTorch)
+        }
+    }
 
     // MARK: - 退出时间
 
@@ -50,7 +70,13 @@ final class SettingsStore: ObservableObject {
         let validTone = storedTone.flatMap { Self.isValidHex($0) ? $0.uppercased() : nil }
         self.toneHex = validTone ?? ScreenTone.pureWhite
 
-        self.alwaysOn = UserDefaults.standard.bool(forKey: Key.alwaysOn)        // 默认 false
+        let storedMode = ScreenMode(rawValue: UserDefaults.standard.string(forKey: Key.mode) ?? "")
+        let resolvedMode = storedMode ?? .nightLight
+        self.mode = resolvedMode
+        self.morseTorch = UserDefaults.standard.bool(forKey: Key.morseTorch)
+
+        // 应急模式必须常亮；夜灯模式沿用上次的选择
+        self.alwaysOn = resolvedMode.forcesAlwaysOn ? true : UserDefaults.standard.bool(forKey: Key.alwaysOn)
     }
 
     private static func isValidHex(_ hex: String) -> Bool {
